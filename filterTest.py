@@ -12,7 +12,7 @@ from Particle import *
 # map variables
 width = 123
 height = 82
-num_particles = 1000
+num_particles = 5000
 map_lines = [(0,0,123,0),(123,0,123,82),(0,82,123,82),(0,0,0,82),(59,0,59,15),
          (59,15,64,15),(64,0,64,15),(59,41,59,82),(59,41,64,41),(64,41,64,82)]
 
@@ -83,11 +83,9 @@ def recalc_weights(particles, ultrasonic):
         
         # gaussian kernal to get a prob around the difference in measurements
         
-        error = (ultrasonic-r)
+        error = np.abs(ultrasonic-r)
         sigma2 = 0.9**2
         weight = exp((-error**2)/(2*sigma2))
-        #if np.abs(error) < 2:
-            #print(weight)
 
         par.weight = weight
         weight_total += weight
@@ -98,9 +96,6 @@ def recalc_weights(particles, ultrasonic):
     for par in particles:
         par.weight /= weight_total
         weights.append(par.weight)
-
-        #if np.abs(ultrasonic-par.r) < 2:
-            #print("ultra: ", ultrasonic, ". r: ", par.r, ". weight: ", par.weight)
     return weights
 
 def predict(particles, rad_rot):
@@ -120,9 +115,13 @@ def resample(particles, weights):
     to_return = list()
 
     for par in new_particles:
-        x = np.random.normal(par.pos_x, 0.9)
-        y = np.random.normal(par.pos_y, 0.9)
-        theta = np.random.normal(par.theta, 0.2)
+        x = np.random.normal(par.pos_x, 2)
+        y = np.random.normal(par.pos_y, 2)
+        while (x < 0 or x > width or y < 0 or y > height):
+            x = np.random.normal(par.pos_x, 2)
+            y = np.random.normal(par.pos_y, 2)
+        
+        theta = np.random.normal(par.theta, 0.3)
         to_return.append(Particle(pos_x=x, pos_y=y, theta=theta, weight=1/num_par))
 
     return to_return
@@ -150,41 +149,25 @@ while(loop_thru_steps):
     ultrasonic = ultrasonic + 7 # adds 7 cms to reading to hit center of bot
 
     # update weights
-    print("weights")
     weights = recalc_weights(particles, ultrasonic)
-    #time.sleep(3)
 
-    # redraw weights
-    #clear_particles(win, drawn_things)
-    #draw_particles(win, particles, drawn_things)
-    #time.sleep(3)
-
+    # using simplified model of movement in circle with 8cm radius with bot modeled as a point
+    # predict step by updating movement
     rotate_ticks = 1 # rotate the robot to the right a number of ticks
     for i in range(rotate_ticks):
         if not test_fake_data:
             soc.sendall(b'd')
             time.sleep(0.5)
 
-    # using simplified model of movement in circle with 8cm radius with bot modeled as a point
     rad_rot = (np.pi/30)*rotate_ticks
-
-    # predict step by updating movement
     predict(particles, rad_rot)
 
-    #clear_particles(win, drawn_things)
-    #draw_particles(win, particles, drawn_things)
-    #time.sleep(3)
 
     #resample
     particles = resample(particles, weights)
     clear_particles(win, drawn_things)
     draw_particles(win, particles, drawn_things)
     update()
-    #time.sleep(3)
-
-
-
-
 
 win.getMouse()
 win.close()
